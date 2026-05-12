@@ -1,0 +1,56 @@
+(function () {
+  if (document.getElementById('mai-launcher')) return;
+
+  var BASE_URL = 'https://kyb-k1hf7qgdr-yohanan-s-projects.vercel.app';
+
+  var style = document.createElement('style');
+  style.textContent = [
+    '#mai-launcher{position:fixed;bottom:24px;right:24px;z-index:2147483647;display:flex;flex-direction:column;align-items:flex-end;gap:12px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}',
+    '#mai-frame-wrap{display:none;width:400px;height:600px;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.22);animation:maiSlideUp 0.22s ease-out;}',
+    '#mai-frame-wrap.mai-open{display:block;}',
+    '#mai-frame{width:100%;height:100%;border:none;display:block;}',
+    '#mai-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#1D4ED8);border:none;cursor:pointer;box-shadow:0 4px 16px rgba(59,130,246,0.5);display:flex;align-items:center;justify-content:center;transition:transform 0.2s,box-shadow 0.2s;flex-shrink:0;}',
+    '#mai-btn:hover{transform:scale(1.08);box-shadow:0 6px 22px rgba(59,130,246,0.65);}',
+    '@keyframes maiSlideUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}'
+  ].join('');
+  document.head.appendChild(style);
+
+  var ICON_CHAT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICON_CLOSE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6L18 18" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>';
+
+  var launcher = document.createElement('div');
+  launcher.id = 'mai-launcher';
+
+  var frameWrap = document.createElement('div');
+  frameWrap.id = 'mai-frame-wrap';
+
+  var iframe = document.createElement('iframe');
+  iframe.id = 'mai-frame';
+  iframe.src = BASE_URL;
+  iframe.title = 'M.ai Verification Assistant';
+  iframe.setAttribute('allow', 'clipboard-write');
+  frameWrap.appendChild(iframe);
+
+  var btn = document.createElement('button');
+  btn.id = 'mai-btn';
+  btn.setAttribute('aria-label', 'Open M.ai assistant');
+  btn.innerHTML = ICON_CHAT;
+
+  var isOpen = false;
+  btn.addEventListener('click', function () {
+    isOpen = !isOpen;
+    if (isOpen) {
+      frameWrap.classList.add('mai-open');
+      btn.innerHTML = ICON_CLOSE;
+      btn.setAttribute('aria-label', 'Close M.ai assistant');
+    } else {
+      frameWrap.classList.remove('mai-open');
+      btn.innerHTML = ICON_CHAT;
+      btn.setAttribute('aria-label', 'Open M.ai assistant');
+    }
+  });
+
+  launcher.appendChild(frameWrap);
+  launcher.appendChild(btn);
+  document.body.appendChild(launcher);
+})();
