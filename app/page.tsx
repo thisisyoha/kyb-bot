@@ -54,7 +54,7 @@ export default function Chat() {
     const ta = textareaRef.current
     if (!ta) return
     ta.style.height = 'auto'
-    ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`
+    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`
   }, [input])
 
   const send = async () => {
@@ -344,6 +344,7 @@ const s: Record<string, React.CSSProperties> = {
     overflowY: 'auto',
     color: '#1E293B',
     transition: 'border-color 0.15s',
+    minHeight: 44,
   },
   sendBtn: {
     width: 38,
