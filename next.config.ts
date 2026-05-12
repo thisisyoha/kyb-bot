@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'ALLOWALL' },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors *",
+            value: "frame-ancestors 'self' https://kyb.meshpayments.com https://*.vercel.app http://localhost:3000",
           },
         ],
       },

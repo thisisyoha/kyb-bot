@@ -60,13 +60,37 @@ A UBO is any individual or entity owning 10% or more of a company, directly or i
 - You do not have access to any customer account data or document status
 - If you're unsure about something specific to Mesh's process, say so honestly and suggest contacting support`
 
+const MAX_MESSAGES = 40
+const MAX_MESSAGE_LENGTH = 4000
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
 }
 
+function validate(messages: unknown): messages is Message[] {
+  if (!Array.isArray(messages)) return false
+  if (messages.length > MAX_MESSAGES) return false
+  return messages.every(
+    m =>
+      (m.role === 'user' || m.role === 'assistant') &&
+      typeof m.content === 'string' &&
+      m.content.length <= MAX_MESSAGE_LENGTH &&
+      m.content.length > 0
+  )
+}
+
 export async function POST(req: Request) {
-  const { messages }: { messages: Message[] } = await req.json()
+  let messages: unknown
+  try {
+    ;({ messages } = await req.json())
+  } catch {
+    return new Response('Invalid JSON', { status: 400 })
+  }
+
+  if (!validate(messages)) {
+    return new Response('Invalid messages', { status: 400 })
+  }
 
   const stream = client.messages.stream({
     model: 'claude-opus-4-7',
@@ -81,6 +105,7 @@ export async function POST(req: Request) {
     messages,
   })
 
+  let streamError: Error | null = null
   const readable = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder()
@@ -93,11 +118,17 @@ export async function POST(req: Request) {
             controller.enqueue(encoder.encode(event.delta.text))
           }
         }
+      } catch (err) {
+        streamError = err instanceof Error ? err : new Error(String(err))
       } finally {
         controller.close()
       }
     },
   })
+
+  if (streamError) {
+    return new Response('Upstream error', { status: 502 })
+  }
 
   return new Response(readable, {
     headers: {
