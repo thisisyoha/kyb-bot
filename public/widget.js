@@ -1,11 +1,20 @@
 (function () {
-  if (document.getElementById('mai-launcher')) return;
+  if (window.__mAiLoaded) return;
+  window.__mAiLoaded = true;
 
-  var BASE_URL = 'https://kyb-k1hf7qgdr-yohanan-s-projects.vercel.app';
+  // Derive base URL from the script tag itself — stays stable regardless of deployment URL
+  var scriptEl = document.currentScript || (function () {
+    var scripts = document.getElementsByTagName('script');
+    return scripts[scripts.length - 1];
+  })();
+  var BASE_URL = scriptEl && scriptEl.src
+    ? scriptEl.src.replace(/\/widget\.js.*$/, '')
+    : 'https://kyb-bot.vercel.app';
 
   var style = document.createElement('style');
+  style.id = 'mai-style';
   style.textContent = [
-    '#mai-launcher{position:fixed;bottom:24px;right:24px;z-index:2147483647;display:flex;flex-direction:column;align-items:flex-end;gap:12px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}',
+    '#mai-launcher{position:fixed;bottom:24px;left:24px;z-index:10100;display:flex;flex-direction:column;align-items:flex-start;gap:12px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}',
     '#mai-frame-wrap{display:none;width:400px;height:600px;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.22);animation:maiSlideUp 0.22s ease-out;}',
     '#mai-frame-wrap.mai-open{display:block;}',
     '#mai-frame{width:100%;height:100%;border:none;display:block;}',
@@ -53,4 +62,16 @@
   launcher.appendChild(frameWrap);
   launcher.appendChild(btn);
   document.body.appendChild(launcher);
+
+  // Expose destroy for graceful unmount (e.g. React route change)
+  window.mAiWidget = {
+    destroy: function () {
+      var el = document.getElementById('mai-launcher');
+      var st = document.getElementById('mai-style');
+      if (el) el.parentNode.removeChild(el);
+      if (st) st.parentNode.removeChild(st);
+      window.__mAiLoaded = false;
+      delete window.mAiWidget;
+    }
+  };
 })();
