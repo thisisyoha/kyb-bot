@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import React from 'react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -15,6 +16,27 @@ const WELCOME: Message = {
 
 function hasHebrew(text: string): boolean {
   return /[֐-׿יִ-ﭏ]/.test(text)
+}
+
+function renderMarkdown(text: string): React.ReactNode {
+  return text.split('\n').map((line, i, arr) => {
+    const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/)
+    const rendered = parts.map((part, j) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={j}>{part.slice(2, -2)}</strong>
+      }
+      if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+        return <em key={j}>{part.slice(1, -1)}</em>
+      }
+      return <React.Fragment key={j}>{part}</React.Fragment>
+    })
+    return (
+      <React.Fragment key={i}>
+        {rendered}
+        {i < arr.length - 1 && <br />}
+      </React.Fragment>
+    )
+  })
 }
 
 export default function Chat() {
@@ -134,7 +156,7 @@ export default function Chat() {
                   textAlign: hebrew ? 'right' : 'left',
                 }}
               >
-                {msg.content}
+                {renderMarkdown(msg.content)}
                 {isLastStreaming && (
                   <span
                     style={{
@@ -285,7 +307,6 @@ const s: Record<string, React.CSSProperties> = {
     padding: '10px 14px',
     borderRadius: 16,
     lineHeight: 1.55,
-    whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
   },
   userBubble: {
