@@ -1,8 +1,27 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
 export const maxDuration = 30
 
 const client = new Anthropic()
+
+const ALLOWED_ORIGINS = [
+  'https://kyb.meshpayments.com',
+  'https://kyb-bot.vercel.app',
+]
+
+const ratelimit =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Ratelimit({
+        redis: new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        }),
+        limiter: Ratelimit.slidingWindow(30, '1 m'),
+        analytics: false,
+      })
+    : null
 
 const SYSTEM_PROMPT = `You are M.ai, Mesh Payments' verification assistant. Mesh Payments is a fintech company (~7 years old) offering corporate card issuance, expense management, and travel solutions for businesses.
 
@@ -109,6 +128,22 @@ function validate(messages: unknown): messages is Message[] {
 }
 
 export async function POST(req: Request) {
+  // Origin check
+  const origin = req.headers.get('origin') ?? ''
+  if (origin && !ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.vercel.app'))) {
+    return new Response('Forbidden', { status: 403 })
+  }
+
+  // Rate limiting (per IP, 30 requests/min)
+  if (ratelimit) {
+    const ip =
+      req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'anonymous'
+    const { success } = await ratelimit.limit(ip)
+    if (!success) {
+      return new Response('Too many requests', { status: 429 })
+    }
+  }
+
   let messages: unknown
   try {
     ;({ messages } = await req.json())
