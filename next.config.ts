@@ -19,11 +19,9 @@ const nextConfig: NextConfig = {
 }
 
 export default withSentryConfig(nextConfig, {
-  org: 'mesh-payments',
-  project: 'mai',
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
   silent: true,
   telemetry: false,
   widenClientFileUpload: true,
-  hideSourceMaps: true,
-  disableLogger: true,
 })
