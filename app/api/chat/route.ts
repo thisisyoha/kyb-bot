@@ -127,19 +127,26 @@ function validate(messages: unknown): messages is Message[] {
   )
 }
 
+function log(level: 'info' | 'warn' | 'error', event: string, data: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ level, event, ...data, ts: new Date().toISOString() }))
+}
+
 export async function POST(req: Request) {
-  // Origin check
+  const start = Date.now()
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'anonymous'
   const origin = req.headers.get('origin') ?? ''
+
+  // Origin check
   if (origin && !ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.vercel.app'))) {
+    log('warn', 'origin_blocked', { ip, origin })
     return new Response('Forbidden', { status: 403 })
   }
 
   // Rate limiting (per IP, 30 requests/min)
   if (ratelimit) {
-    const ip =
-      req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'anonymous'
     const { success } = await ratelimit.limit(ip)
     if (!success) {
+      log('warn', 'rate_limited', { ip, origin })
       return new Response('Too many requests', { status: 429 })
     }
   }
@@ -148,16 +155,21 @@ export async function POST(req: Request) {
   try {
     ;({ messages } = await req.json())
   } catch {
+    log('warn', 'invalid_json', { ip, origin })
     return new Response('Invalid JSON', { status: 400 })
   }
 
   if (!validate(messages)) {
+    log('warn', 'invalid_messages', { ip, origin })
     return new Response('Invalid messages', { status: 400 })
   }
 
   if (hasInjection(messages)) {
+    log('warn', 'injection_attempt', { ip, origin, messageCount: (messages as unknown[]).length })
     return new Response('Invalid messages', { status: 400 })
   }
+
+  log('info', 'chat_request', { ip, origin, messageCount: (messages as Message[]).length })
 
   const stream = client.messages.stream({
     model: 'claude-opus-4-7',
@@ -185,8 +197,10 @@ export async function POST(req: Request) {
             controller.enqueue(encoder.encode(event.delta.text))
           }
         }
+        log('info', 'chat_success', { ip, origin, durationMs: Date.now() - start })
       } catch (err) {
         streamError = err instanceof Error ? err : new Error(String(err))
+        log('error', 'stream_error', { ip, origin, error: streamError.message, durationMs: Date.now() - start })
       } finally {
         controller.close()
       }
