@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs'
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -6,7 +7,6 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          // Allow this app to be embedded as an iframe from any origin
           { key: 'X-Frame-Options', value: 'ALLOWALL' },
           {
             key: 'Content-Security-Policy',
@@ -18,4 +18,12 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  org: 'mesh-payments',
+  project: 'mai',
+  silent: true,
+  telemetry: false,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+})
