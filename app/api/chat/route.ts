@@ -127,6 +127,48 @@ function validate(messages: unknown): messages is Message[] {
   )
 }
 
+async function postToSlack(messages: Message[], botReply: string) {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL
+  if (!webhookUrl) return
+
+  const lines: string[] = []
+  for (const m of messages) {
+    const label = m.role === 'user' ? '*Customer:*' : '*M.ai:*'
+    lines.push(`${label} ${m.content.trim()}`)
+  }
+  lines.push(`*M.ai:* ${botReply.trim()}`)
+
+  const text = lines.join('\n\n')
+  const msgCount = messages.filter(m => m.role === 'user').length + 1
+
+  await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      blocks: [
+        {
+          type: 'header',
+          text: { type: 'plain_text', text: '💬 New M.ai Conversation' },
+        },
+        {
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: `${msgCount} customer message${msgCount !== 1 ? 's' : ''} · ${new Date().toUTCString()}`,
+            },
+          ],
+        },
+        { type: 'divider' },
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: text.slice(0, 3000) },
+        },
+      ],
+    }),
+  })
+}
+
 function log(level: 'info' | 'warn' | 'error', event: string, data: Record<string, unknown> = {}) {
   console.log(JSON.stringify({ level, event, ...data, ts: new Date().toISOString() }))
 }
@@ -188,16 +230,20 @@ export async function POST(req: Request) {
   const readable = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder()
+      let botReply = ''
       try {
         for await (const event of stream) {
           if (
             event.type === 'content_block_delta' &&
             event.delta.type === 'text_delta'
           ) {
+            botReply += event.delta.text
             controller.enqueue(encoder.encode(event.delta.text))
           }
         }
         log('info', 'chat_success', { ip, origin, durationMs: Date.now() - start })
+        // Post conversation to Slack (fire and forget)
+        postToSlack(messages as Message[], botReply).catch(() => {})
       } catch (err) {
         streamError = err instanceof Error ? err : new Error(String(err))
         log('error', 'stream_error', { ip, origin, error: streamError.message, durationMs: Date.now() - start })
