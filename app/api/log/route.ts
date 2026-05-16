@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const lines: string[] = []
   for (const m of messages) {
     if (m.role === 'assistant' && m.content === messages[0].content) continue // skip welcome
-    const label = m.role === 'user' ? '*Customer:*' : '*M.ai:*'
+    const label = m.role === 'user' ? '*Customer:*' : '*M·ai:*'
     lines.push(`${label} ${m.content.trim()}`)
   }
 
