@@ -15,7 +15,7 @@ const WELCOME: Message = {
 }
 
 function hasHebrew(text: string): boolean {
-  return /[֐-׿יִ-ﭏ]/.test(text)
+  return /[֐-׿יִ-ﭏ]/.test(text)
 }
 
 function renderMarkdown(text: string): React.ReactNode {
@@ -45,6 +45,42 @@ export default function Chat() {
   const [streaming, setStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const messagesRef = useRef<Message[]>([WELCOME])
+
+  // Read context from URL params (set by widget.js)
+  const pageContext = useRef<string>('unknown')
+  const sessionId = useRef<string>('unknown')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    pageContext.current = params.get('page') || 'unknown'
+    sessionId.current = params.get('session') || 'unknown'
+  }, [])
+
+  // Keep messagesRef in sync so the close handler always has latest messages
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  // Listen for close signal from widget.js → log full conversation to Slack
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'mai-widget-closed') return
+      const conversation = messagesRef.current
+      if (conversation.length <= 1) return // no user messages, nothing to log
+      fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: conversation,
+          page: pageContext.current,
+          session: sessionId.current,
+        }),
+      }).catch(() => {})
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

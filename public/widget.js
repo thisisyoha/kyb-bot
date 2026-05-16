@@ -2,7 +2,7 @@
   if (window.__mAiLoaded) return;
   window.__mAiLoaded = true;
 
-  // Derive base URL from the script tag itself — stays stable regardless of deployment URL
+  // Derive base URL from the script tag itself
   var scriptEl = document.currentScript || (function () {
     var scripts = document.getElementsByTagName('script');
     return scripts[scripts.length - 1];
@@ -10,6 +10,15 @@
   var BASE_URL = scriptEl && scriptEl.src
     ? scriptEl.src.replace(/\/widget\.js.*$/, '')
     : 'https://kyb-bot.vercel.app';
+
+  // Read page context from data attribute: <script src="...widget.js" data-page="ubo-step">
+  var page = (scriptEl && scriptEl.getAttribute('data-page')) || 'unknown';
+
+  // Generate a session ID for this widget load
+  var sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+  // Build iframe URL with context
+  var iframeSrc = BASE_URL + '?page=' + encodeURIComponent(page) + '&session=' + encodeURIComponent(sessionId);
 
   var style = document.createElement('style');
   style.id = 'mai-style';
@@ -35,7 +44,7 @@
 
   var iframe = document.createElement('iframe');
   iframe.id = 'mai-frame';
-  iframe.src = BASE_URL;
+  iframe.src = iframeSrc;
   iframe.title = 'M.ai Verification Assistant';
   iframe.setAttribute('allow', 'clipboard-write');
   frameWrap.appendChild(iframe);
@@ -46,6 +55,14 @@
   btn.innerHTML = ICON_CHAT;
 
   var isOpen = false;
+
+  function notifyClose() {
+    // Tell the iframe the widget is closing so it can log the conversation
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({ type: 'mai-widget-closed' }, BASE_URL);
+    }
+  }
+
   btn.addEventListener('click', function () {
     isOpen = !isOpen;
     if (isOpen) {
@@ -53,6 +70,7 @@
       btn.innerHTML = ICON_CLOSE;
       btn.setAttribute('aria-label', 'Close M.ai assistant');
     } else {
+      notifyClose();
       frameWrap.classList.remove('mai-open');
       btn.innerHTML = ICON_CHAT;
       btn.setAttribute('aria-label', 'Open M.ai assistant');
@@ -66,6 +84,7 @@
   // Expose destroy for graceful unmount (e.g. React route change)
   window.mAiWidget = {
     destroy: function () {
+      notifyClose();
       var el = document.getElementById('mai-launcher');
       var st = document.getElementById('mai-style');
       if (el) el.parentNode.removeChild(el);
