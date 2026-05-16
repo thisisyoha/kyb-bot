@@ -173,7 +173,7 @@ export async function POST(req: Request) {
   log('info', 'chat_request', { ip, origin, messageCount: (messages as Message[]).length })
 
   const stream = client.messages.stream({
-    model: 'claude-opus-4-7',
+    model: 'claude-sonnet-4-6',
     max_tokens: 1024,
     system: [
       {
