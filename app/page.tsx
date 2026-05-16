@@ -62,24 +62,45 @@ export default function Chat() {
     messagesRef.current = messages
   }, [messages])
 
-  // Listen for close signal from widget.js → log full conversation to Slack
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type !== 'mai-widget-closed') return
-      const conversation = messagesRef.current
-      if (conversation.length <= 1) return // no user messages, nothing to log
+  const hasLogged = useRef(false)
+
+  const logConversation = (beacon = false) => {
+    const conversation = messagesRef.current
+    if (conversation.length <= 1) return // no user messages, nothing to log
+    if (hasLogged.current) return        // already logged this session
+    hasLogged.current = true
+    const payload = JSON.stringify({
+      messages: conversation,
+      page: pageContext.current,
+      session: sessionId.current,
+    })
+    if (beacon) {
+      // sendBeacon fires reliably during page unload
+      navigator.sendBeacon('/api/log', new Blob([payload], { type: 'application/json' }))
+    } else {
       fetch('/api/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: conversation,
-          page: pageContext.current,
-          session: sessionId.current,
-        }),
+        body: payload,
       }).catch(() => {})
+    }
+  }
+
+  // Listen for close signal from widget.js (X button clicked)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'mai-widget-closed') return
+      logConversation(false)
     }
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
+  }, [])
+
+  // Fire on tab/window close
+  useEffect(() => {
+    const handleBeforeUnload = () => logConversation(true)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [])
 
   useEffect(() => {
